@@ -1,0 +1,8 @@
+[Desktop Entry]
+X-Desktop-File-Install-Version=0.26
+Name=Music Pipe
+Type=Application
+GenericName=Music Player
+Keywords=music;song;
+Exec=python3 /home/robert/data/songs/MusicPipe.py
+Icon=MusicPipe
