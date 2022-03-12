@@ -26,6 +26,8 @@ class Player:#TODO filtering
 		self.root.geometry("1000x300")
 		self.root.title("Music Pipe")
 #		self.root.iconbitmap("@/home/robert/data/songs/MusicPipe.xbm")
+		self.root.bind("<Key>", self.keyPress)
+		self.root.protocol("WM_DELETE_WINDOW", close)
 
 		#the things with "self." are dynamic, and need to be refrenced other places
 
@@ -52,12 +54,13 @@ class Player:#TODO filtering
 		queueFrame.pack(side=LEFT, expand=True, fill=BOTH)
 		scrol_y = Scrollbar(queueFrame, orient=VERTICAL)
 		scrol_x = Scrollbar(queueFrame, orient=HORIZONTAL)
-		self.queue = Listbox(queueFrame, xscrollcommand=scrol_x.set, yscrollcommand=scrol_y.set, selectbackground="gold", selectmode=MULTIPLE, font=("times new roman",12,"bold"), bg="silver", fg="navyblue", bd=5, relief=GROOVE)
+		self.queue = Listbox(queueFrame, xscrollcommand=scrol_x.set, yscrollcommand=scrol_y.set, selectbackground="gold", selectmode=EXTENDED, font=("times new roman",12,"bold"), bg="silver", fg="navyblue", bd=5, relief=GROOVE)
 		scrol_y.pack(side=RIGHT, fill=Y)
 		scrol_x.pack(side=BOTTOM, fill=X)
 		scrol_y.config(command=self.queue.yview)
 		scrol_x.config(command=self.queue.xview)
 		self.queue.pack(fill=BOTH, expand=True)
+		self.queue.bind("<KeyPress>", self.queueKeyPress)
 
 		#queue control
 		queueControlFrame = Frame(self.root, bg="grey", bd=5, relief=GROOVE)
@@ -78,7 +81,7 @@ class Player:#TODO filtering
 		songsFrame.pack(side=LEFT, expand=True, fill=BOTH)
 		scrol_y = Scrollbar(songsFrame, orient=VERTICAL)
 		scrol_x = Scrollbar(songsFrame, orient=HORIZONTAL)
-		self.playlist = Listbox(songsFrame, xscrollcommand=scrol_x.set, yscrollcommand=scrol_y.set, selectbackground="gold", selectmode=MULTIPLE, font=("times new roman",12,"bold"), bg="silver", fg="navyblue", bd=5, relief=GROOVE)
+		self.playlist = Listbox(songsFrame, xscrollcommand=scrol_x.set, yscrollcommand=scrol_y.set, selectbackground="gold", selectmode=EXTENDED, font=("times new roman",12,"bold"), bg="silver", fg="navyblue", bd=5, relief=GROOVE)
 		scrol_y.pack(side=RIGHT, fill=Y)
 		scrol_x.pack(side=BOTTOM, fill=X)
 		scrol_y.config(command=self.playlist.yview)
@@ -196,9 +199,43 @@ class Player:#TODO filtering
 		for i in reversed(self.queue.curselection()):
 			self.queue.delete(i)
 
+	def pullSelected(self, extrema=False):
+		q = self.queue.curselection()
+		if len(q) == 1:
+			if q[0] != 0:
+				song = self.queue.get(q[0])
+				self.queue.delete(q[0])
+				if extrema:
+					self.queue.insert(0, song)
+#					self.queue.selection_clear(0, END)
+					self.queue.selection_set(0)
+				else:
+					self.queue.insert(q[0]-1, song)
+#					print(len(self.queue.curselection()))
+#					self.queue.selection_clear(0, END)
+					self.queue.selection_set(q[0]-1)
+#					print(len(self.queue.curselection()))
+
+	def pushSelected(self, extrema=False):
+		q = self.queue.curselection()
+		if len(q) == 1:
+			if q[0] < self.queue.size()-1:
+				song = self.queue.get(q[0])
+				self.queue.delete(q[0])
+				if extrema:
+					self.queue.insert(END, song)
+#					self.queue.selection_clear(0), END
+					self.queue.selection_set(END)
+				else:
+					self.queue.insert(q[0]+1, song)
+#					print(len(self.queue.curselection()))
+#					self.queue.selection_clear(0, END)
+					self.queue.selection_set(q[0]+1)
+#					print(len(self.queue.curselection()))
+
 	def scrub(self, pos):
 		pos = int(pos)
-		self.scrubber.config(label=posToTime(pos)+"/"+posToTime(self.length))
+		self.scrubber.config(label=Player.posToTime(pos)+"/"+Player.posToTime(self.length))
 		global AutoScrub
 		if AutoScrub:
 			AutoScrub = False
@@ -215,23 +252,38 @@ class Player:#TODO filtering
 			self.root.title(name)
 		self.songLabel.config(text=name)
 
-def posToTime(pos):
-	pos /= 1000
-	m = int(pos//60)
-	s = int(pos%60)
-	return f"{m}:{s:02n}"
+	def queueKeyPress(self, event):
+		if event.state == 4:
+			extrema = True
+		else:
+			extrema = False
+		if event.keysym == "Up":
+			self.pullSelected(extrema=extrema)
+		elif event.keysym == "Down":
+			self.pushSelected(extrema=extrema)
+		else:
+			return
+		return "break"
+		#if "break" is returned, no more key events are carried out
+
+	def keyPress(self, event):
+		if event.keysym == "space":
+			self.togglePause()
+
+	def posToTime(pos):
+		pos /= 1000
+		m = int(pos//60)
+		s = int(pos%60)
+		return f"{m}:{s:02n}"
 
 def close():
 	global ToClose
-	global Root
+	global player
 	ToClose = True
-	Root.quit()
-	Root.destroy()
+	player.root.quit()
+	player.root.destroy()
 
-Root = Tk()
-Root.protocol("WM_DELETE_WINDOW", close)
-
-player = Player(Root)
+player = Player(Tk())
 
 ScrubbingOffset = 0
 ToClose = False
@@ -239,8 +291,8 @@ CheckBusy = False
 AutoScrub = False
 while True:
 	time.sleep(0.01)
-	Root.update_idletasks()
-	Root.update()
+	player.root.update_idletasks()
+	player.root.update()
 
 	if ToClose:
 		mixer.quit()
